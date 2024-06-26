@@ -29,7 +29,7 @@
 
 ### Encoding and playing YUV file
 
-- YUV file, 1920x1080 4:2:0 format 8bit depth 120fps
+- YUV file, 1920x1080 4:2:0 format 16bit depth 120fps
 
   ```bash
   ffmpeg -f rawvideo -pix_fmt yuv420p -s:v 1920x1080 -r 120 -i input.yuv -c:v libvvenc -q 5 -threads 8 -f rawvideo output.266
