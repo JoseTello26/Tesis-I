@@ -20,6 +20,7 @@
 ## AV1
 
 - https://arxiv.org/pdf/2008.06091
+- https://www.youtube.com/watch?v=qubPzBcYCTw
 
 ## NNCompression
 
