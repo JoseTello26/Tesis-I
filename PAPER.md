@@ -132,6 +132,7 @@ El Versatile Video Coding fue publicado en 2021. Superando a sus predecesores no
 - Videos de resoluciones mayores a 8K y con profundidad de bits de hasta 10 bits.
 - Puede adaptarse al procesamiento de contenido generado por computadora como al compartir una pantalla remota.
 - Soporta el procesamiento de videos en formato 360°.
+- Busca reducir el bitrate de compresión en un 50% respecto a su predecesor (HEVC).
 
 **Codificación de MB**
 
@@ -144,6 +145,18 @@ Se cuenta con predicción definida por ángulos. Cada bloque tiene hasta 65 dist
 **Inter-Predicción**
 
 Al igual que en AVC y HEVC, se usan vectores de movimiento (MV) para poder estimar el movimiento de un bloque en un conjunto de frames de referencia. Sin embargo, VVC puede tener dos listas de MV referenciando frames distintos que posteriormente promedian las predicciones para formar una sola.
+
+A la fecha de escrito el informe, el codec aúnn se encuentra en desarrollo y ha sido adaptado oficialmente para `ffmpeg`. 
+
+#### AV1
+
+El codificador AOMedia Video 1 (AV1) es un algoritmo de compresión de código abierto diseñado por la AOM (Alliance for Open Media) en 2019 como sucesor del codec VP9 de Google.  AV1 sigue la misma estructura básica de un algoritmo de compresión, dividiendo los frames en bloques de píxeles y realizando inter o intra-predicciones entre ellos para finalmente codificar los residuos de realizar las predicciones de cada frame. 
+
+Sin embargo, AV1 ofrece hasta 10 maneras de particionar un macrobloque de hasta 128x128 píxeles (superbloque) de manera recursiva hasta un mínimo de bloques 4x4. Se introducen además las denominadas "baldosas", definidas como un grupo de macrobloques cuyas referencias de intrapredicción están dentro de la baldosa, es decir, agrupa todos los macrobloques cuyas predicciones sean dependientes entre si. Utilizando las baldozas se obtiene que se agrupan los macrobloques con particiones mas reducidas y que por lo tanto determinan una mayor complejidad computacional. El objetivo de las baldosas es identificar estas regiones con particiones reducidas para poder distribuir el trabajo de manera mas equitativa entre los threads en tiempo de ejecución.
+
+La intra-predicción hereda las mismas direcciónes de predicción de VP9 y las expande para lograr una predicción mas precisa.
+
+Este codec supera la compresión del codec HEVC y VP9 en hasta un 30% y ha sido adaptado y usado por empresas como Netflix, Youtube y Facebook. 
 
 ### Redes Neuronales
 
@@ -256,11 +269,7 @@ Donde $d$ es la función que mide la distorsión entre $x_t$ y $\hat{x}_t$ y $H(
 
 Según los resultados obtenidos en [], el método empleado logra obtener un mejor resultado que los codecs evaluados hasta el momento, que son H.264 y H.265, lo cual resulta en una nueva estrategia para abordar la compresión de video, además de ser extensible aplicando incluso mejores algoritmos para hallar el flujo óptico.
 
-### AV1
 
-El codificador AOMedia Video 1 (AV1) es un algoritmo de compresión de código abierto diseñado por la AOM (Alliance for Open Media) en 2019 como sucesor del codec VP9 de Google.  AV1 sigue la misma estructura básica de un algoritmo de compresión, dividiendo los frames en bloques de píxeles y realizando inter o intra-predicciones entre ellos para finalmente codificar los residuos de realizar las predicciones de cada frame. 
-
-Sin embargo, AV1 ofrece hasta 10 maneras de particionar un macrobloque de hasta 128x128 píxeles (superbloque) de manera recursiva hasta un mínimo de bloques 4x4. Se introducen además las denominadas "baldosas", definidas como un grupo de macrobloques cuyas referencias de intrapredicción están dentro de la baldosa, es decir, agrupa todos los macrobloques cuyas predicciones sean dependientes entre si. Utilizando las baldozas se obtiene que se agrupan los macrobloques con particiones mas reducidas y que por lo tanto determinan una mayor complejidad computacional. El objetivo de las baldosas es identificar estas regiones con particiones reducidas para poder distribuir el trabajo de manera mas equitativa entre los threads en tiempo de ejecución.
 
 
 

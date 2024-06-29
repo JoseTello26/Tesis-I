@@ -43,3 +43,4 @@
 ## VIDEO QUALITY METRICS
 
 - https://github.com/slhck/ffmpeg-quality-metrics
+- SI/TI: https://github.com/VQEG/siti-tools
