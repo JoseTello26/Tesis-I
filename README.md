@@ -19,7 +19,13 @@
 - Install requirements to build `ffmpeg`:
 
   ```bash
-  sudo apt install build-essential libtool autoconf automake pkg-config libx11-dev libxext-dev libxrender-dev libxv-dev libjpeg-dev libpng-dev libtiff-dev libwebp-dev libavcodec-dev libavformat-dev libavfilter-dev libavutil-dev libswscale-dev libvorbis-dev libmp3lame-dev libopus-dev libvpx-dev libx264-dev libx265-dev libtheora-dev libopenh264-dev libfaac-dev zlib1g-dev libgsm1-dev:i386
+  sudo apt install build-essential libtool autoconf automake\
+  	pkg-config libx11-dev libxext-dev libxrender-dev libxv-dev\
+  	libjpeg-dev libpng-dev libtiff-dev libwebp-dev libavcodec-dev\
+  	libavformat-dev libavfilter-dev libavutil-dev libswscale-dev\
+  	libvorbis-dev libmp3lame-dev libopus-dev libvpx-dev libx264-dev\
+  	libx265-dev libtheora-dev libopenh264-dev libfaac-dev zlib1g-dev\
+  	libgsm1-dev:i386
   ```
 
   Follow instructions to add `libvvenc` to `ffmpeg`: https://github.com/fraunhoferhhi/vvenc/wiki/FFmpeg-Integration

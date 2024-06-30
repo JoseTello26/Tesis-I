@@ -41,7 +41,7 @@ A través de un análisis detallado, este estudio busca proporcionar una visión
 
 - Establecer las diferencias técnicas entre los codecs para archivos de video H.264, H.265 y H.265.
 - Contrastar los codecs tradicionales de video con los frameworks de compresión DeepCoder y DVC, en términos del ruido producido al finalizar la compresión, usando como referencia una la imagen previa la compresión.
-- Validar la superioridad del método DVC por sobre el codec H.266/vVc, en términos de PSNR (Peak Signal to Noise Ratio).
+- Validar la superioridad del método DVC por sobre el codec H.266/VVc, en términos de PSNR (Peak Signal to Noise Ratio).
 - Establecer qué factores serían los más relevantes e influyentes en la ejecución en tiempo real de dichos algoritmos, para poder verificar si su uso es factible en los casos de uso actuales.
 
 ### Hipótesis
@@ -271,11 +271,222 @@ Según los resultados obtenidos en [], el método empleado logra obtener un mejo
 
 
 
+## METODOLOGÍA
+
+Para poder comparar la eficiencia de los algoritmos Deep Video Coder (DVC) y H.266 (Versatile Video Coder) se usarán implementaciones realizadas por los propios divulgadores de los algoritmos, las cuales están subidas en GitHub
+
+- DVC: \url{https://github.com/GuoLusjtu/DVC}
+- H.266: \url{https://github.com/fraunhoferhhi/vvenc}
+
+Una vez implementados, se probarán con un conjunto de videos de distintas calidades, dimensiones y a distintos bitrates (bps), usando el programa ffmpeg, el cual provee de muchas opciones y filtros para poder llevar a cabo las compresiones y comparaciones.
+
+Los videos serán seleccionados en base a las métricas SI-TI, obtenidas de \cite{siti-tools}, una herramienta desarrollada en Python para calcular la SI-TI de un video. Se elejirán videos con alta variación tanto en sus metricas espaciales y temporales.
+
+Posteriormente, se analizarán las salidas de los algoritmos, y sus tiempos de ejecución, para luego proceder a analizar los videos comprimidos respecto a los originales a través de las 2 métricas de comparación de video definidas en la sección previa: \textbf{PSNR} y \textbf{SSIM}. Se utilizará el paquete de Python citado en \cite{ffmpeg-quality-metrics}
+
+### Eligiendo los videos de prueba
+
+Para elegir los videos de prueba se eligieron 2 elementos del dataset [], cuyos videos están formato .YUV y en calidades superiores a 1920x1080p, y 4 elementos del dataset [], en el cual se encuentran videos en calidades mas variadas. Principalmente se obtuvieron los siguientes videos en base a su análisis SI-TI a través del uso de la librería `siti-tools`:
 
 
 
+```bash
+siti-tools input.y4m --color-range full > input.json
+```
 
 
+
+- "dog.yuv": https://ultravideo.fi/video/ShakeNDry_1920x1080_120fps_420_8bit_YUV_RAW.7z
+- "beauty.yuv": https://ultravideo.fi/video/Beauty_1920x1080_120fps_420_8bit_YUV_RAW.7z
+- "news.yuv": https://media.xiph.org/video/derf/y4m/akiyo_cif.y4m
+- "four_people.yuv": https://media.xiph.org/video/derf/y4m/FourPeople_1280x720_60.y4m
+- "hallroom.yuv": https://media.xiph.org/video/derf/y4m/hall_monitor_cif.y4m
+- "ice_skating.yuv": https://media.xiph.org/video/derf/y4m/ice_cif.y4m
+- "foreman.yuv": https://media.xiph.org/video/derf/y4m/foreman_cif.y4m
+
+
+
+Como se puede observar, se tiene una variedad entre 10 y 60 de información espacial, y valores entre 2 y 12 de información temporal, por lo que podemos afirmar que hay una buena variación entre las características de los videos elegidos
+
+### Compilando el codec H.266
+
+Siendo que el codec VVC aún está en fase experimental y no existe un archivo binario como tal para ejecutarlo, se debe compilar desde el código fuente original. Adicionalmente, se compiló junto a la aplicación `ffmpeg` , la cual le dió soporte oficial desde el 15 de junio de 2024. Dicho soporte permite que `ffmpeg` habilite compatibilidad para ejecutar el codec previamente compilado `vvenc` desde su código fuente.
+
+Para esto, se instalan las librerías especificadas en [] y [] y finalmente se realiza la compilación de `ffmpeg` con la configuración que habilita el uso de `libvvenc`
+
+```bash
+#Dentro del repositorio clonado de ffmpeg
+./configure  --enable-pthreads --enable-pic --enable-shared --enable-rpath --arch=amd64 --enable-demuxer=dash --enable-libxml2 --enable-libvvenc --enable-libx264 --enable-gpl --enable-libx265
+make	#make -j (optional)
+sudo make install
+```
+
+Finalmente para comprimir los videos, se utiliza el comando:
+
+```bash
+ffmpeg -f rawvideo -pix_fmt yuv420p -s:v <VIDEOSIZE> -r <FRAMERATE> -i input.yuv -c:v libvvenc -q 5 -preset fast -threads 4 output.266
+```
+
+De donde:
+
+- **-f** especifica el formato del video de entrada
+- **-pix_fmt** especifica el formato de coloración del archivo YUV. 
+- **-s:v** especifica las dimensiones del video de entrada
+- **-r** indica el framerate del video de entrada
+- **-c:v** especifica el codec a usar para comprimir el video
+- **-q** especifica la calidad de la compresión en la cuantización. A mayor valor de **q**, menor la calidad de compresión
+- **-preset** indica la velocidad de la compresión. Mientras mas rápida, menor será la calidad de la compresión
+- **-threads** indica en cuantos threads puede ejecutar la compresión
+
+Adicionalmente, se puede reproducir el video comprimido usando el comando
+
+```bash
+ffplay -strict -2 output.266
+```
+
+### Compilando el codec DVC
+
+Para poder compilar el codec a evaluar, es necesario cumplir con los requerimientos especificados en [], que incluyen principalmente una versión de Python3.6, Tensorflow1.12 y descargar los modelos entrenados indicados.
+
+Una vez se tenga todo listo, se puede realizar la compresión de los videos con una restricción, todos los videos deben estar divididos en frames previamente. Esto se logra con ffmpeg y el comando
+
+```bash
+#Convertir videos .yuv a .y4m
+ffmpeg -framerate 25 -video_size <VIDEOSIZE> -pix_fmt yuv420p -i input.yuv input.y4m
+
+ffmpeg -i input.y4m -vf "crop=1920:1072:0:0" -pix_fmt yuv420p frames/f%03d.png
+```
+
+Finalmente se podrá ejecutar el algoritmo en 2 modos especificados, uno distinto para la métrica en la que están optimizados: PSNR y MS-SSIM
+
+```bash
+#PSNR
+python OpenDVC_test_video.py --path test/test1/frames --mode PSNR --metric PSNR --l 1024
+#MS-SSIM
+!python OpenDVC_test_video.py --path test/test1/frames --mode MS-SSIM  --CA_model_path CA_EntropyModel_Test --metric MS-SSIM --python $(which python) --l 32
+```
+
+Adicionalmente, existen cuatro modelos distintos para el uso de la compresión con cada modo, de los cuales varía el valor de $\lambda$ especificado en \cite{bib4} al momento del entrenamiento. Dichos valores  se pueden variar con el parámetro \textbf{\texttt{--l}}
+
+
+
+### Comprimiendo los videos
+
+Por cada video se hizo 3  compresiones distintas variando el bitrate en cada una. En los videos 1 y 2, al ser videos en HD y con un framerate mucho mayor respecto a los demás elegidos, se eligió comprimirlos en bitrates de **1024kbps**, **2048kbps** y **5096kbps**. Para el resto de videos se usaron los bitrates **128kbps**, **256kbps** y **512kbps**.
+
+Para tener un panorama mas amplio de la comparación, también se realizó la compresión en los codecs H.264 y H.265.
+
+```bash
+ffmpeg -f rawvideo -pix_fmt yuv420p -s:v <VIDEOSIZE> -r 120 -i input.yuv -c:v <CODEC> -q 5 -preset fast -threads <THREADS> -b:v <BITRATE> output_<CODEC>_<BITRATE>k.mp4
+```
+
+Todo se automatizó a partir de el archivo bash `compress_h26x.sh` en [], creado para generar la compresión según los parámetros de cada video.
+
+```bash
+./compress_h26x.sh <test_video> <dimensiones> <framerate> <bitrate> <preset> <threads> <calidad>
+```
+
+Para el caso especial de DVC, dado que trabaja exclusivamente con frames, no es posible definir un parámetro de bitrate al cual ajustar para la compresión. Sin embargo, los lambdas están parametrizados. En el modelo PSNR varía entre 256, 512, 1024 y 2048, mientras que para SSIM varía entre 8, 16, 32, 64.
+
+Por lo que se opta por variar la compresión entre los últimos 3 valores del lambda, dando como resultado una medida PSNR promedio y una medida bpp promedio. 
+
+### Obteniendo las métricas
+
+Para obtener las metricas de los videos comprimidos con los codecs H.26x se realizó un script de Python apoyado con la librería importada `ffmpeg-quality-metrics`, que se modificó para que pueda leer las métricas de archivos con codec h.266 (bloqueado por defecto al ser un codec experimental).
+
+El uso de dicha librería está dado en Python por:
+
+```python
+from ffmpeg_quality_metrics import FfmpegQualityMetrics
+
+ffqm = FfmpegQualityMetrics(original_videl, dist_video, framerate=framerates[i-1])
+ffqm_calc = ffqm.calculate(["ssim", "psnr"])
+```
+
+Los resultados fueron exportados a un archivo `test_metrics.json` con la siguiente estructura:
+
+```json
+{
+  'testN':
+  {
+    'BITRATE':
+    {
+      'x264':
+      {
+        'psnr': _
+        'ssim': _
+      }
+      'x265':
+      {
+        'psnr': _
+        'ssim': _
+      }
+      'vvenc':
+      {
+        'psnr': _
+        'ssim': _
+      }
+    }
+  }
+  ...
+}
+```
+
+
+
+## RESULTADOS
+
+Al realizas las compresiones en los respectivos bitrates (H.26x) y con los respectivos lambdas (DVC), se obtienen medidas PSNR y SSIM para las cuales se homogenizarán en un mismo eje de comparación: los bpp (bits por píxel). Esta medida es la salida por defecto para DVC, ya que al no poder trabajar con videos propiamente (solo con frames), no puede estimar un bitrate. Para H.26x, obtener los bpp promedio de los frames de cada video es posible sabiendo que tanto el bpp como el bitrate de un video están relacionados por la siguiente fórmula:
+$$
+\frac{W\times H\times \text{FPS} \times \text{bpp}}{1000} = \text{bitrate (kbps)}
+$$
+
+
+Finalmente, se realizó el gráfico de los resultados respecto a los bits por pixel de cada video.
+
+#### **Resultados de PSNR**
+
+- Todos los codecs mejoraron su rendimiento a medida que se aumentaba el bpp
+- Los videos 1 y 2 cuya calidad es de 1920x1080 son los que obtuvieron el menor PSNR, con un máximo de 38dB al comprimirse con H.26x
+- El codec H.266 fue el que obtuvo los mejores resultados en comparación al resto de los codecs, incluyendo el DVC.
+- Los resultados del codec DVC son los menores respecto al resto, obteniendo resultados tan bajos como 32dB en el video test7. Sin embargo, sus PSNR se acercan a los obtenidos por los codecs tradicionales, por lo que se puede inferir que obtiene una buena calidad de salida, mas no la óptima.
+- Se observa que los bpp obtenidos al comprimir con DVC son mucho mayores a los obtenidos con los codecs H.26x, esto debido a que DVC comprime en base a los frames originales del video en formato .y4m, y al obtenerlos se obtiene imágenes en .png para lograr obtener frames sin pérdida. Como consecuencia, se obtiene frames de hasta 5Mb de tamaño, haciendo que su compresión sea mucho mas complicada y costosa computacionalmente, lo que resulta en una mayor cantidad de bits por pixeles comprimidos en relación a los codecs tradicionales que han sido configurados para poder adaptarse a un bitrate de salida ajustado (128kbps por ejemplo).
+- Se nota que el codec H.266 tiene resultados similares y casi por debajo de los obtenidos por el codec H.265 en el test6 en específico. Esto puede deberse a que el test6 es el video que tiene mayor información temporal y el codec H.265 es casi un estándar aceptado y revisado por mucho mas tiempo que H.266, que en comparación sigue en estado experimental y tiene aún mucho desarrollo por delante.
+
+#### **Resultados de SSIM**
+
+- Se observa un panorama similar al obtenido con la métrica de PSNR, en donde los codecs aumentan su resultado a medida que aumentan sus bpp. Sin embargo, la diferencia fundamental radica en que es en esta medida que el codec DVC obtiene los resultados superiores y más próximos a 1 (máximo teórico)
+- Los bpp obtenidos del modelo DVC optimizado para SSIM han sido muy proximos a los que resultaron de ajustar el bitrate de salida de los codecs H.26x. Esto significa que ha tenido un buen ratio de compresión de las imágenes. 
+- Como dato adicional, se observa que para los videos 1 y 2 se obtuvo una compresión de los frames a casi la mitad en relación a su tamaño original, aún manteniendo un puntaje superior de SSIM.
+
+#### 4. **Conclusiones de la Comparación**
+
+- **Comparación Global:** Resumir las diferencias clave observadas entre los codecs H.264, H.265, H.266 y DVC basadas en las métricas PSNR y SSIM.
+- **Rendimiento de DVC:** Destacar cómo el framework DVC proporciona una mejor calidad de compresión, reflejada en mayores valores de PSNR y SSIM, en comparación con los codecs tradicionales.
+- **Consideraciones Prácticas:** Discutir las implicaciones prácticas de los resultados, incluyendo la factibilidad de implementación de DVC en aplicaciones reales considerando tanto la calidad como la complejidad computacional.
+- **Recomendaciones:** Proporcionar recomendaciones basadas en los resultados para la selección de codecs en diferentes contextos de uso.
+
+Este enfoque estructurado proporciona una forma clara y coherente de presentar los resultados obtenidos de la comparación entre los codecs tradicionales y el framework DVC, resaltando las ventajas y limitaciones de cada uno en términos de calidad de compresión y eficiencia.
+
+
+
+## CONCLUSIONES
+
+Este proyecto ha explorado la comparativa y evaluación de diferentes tecnologías de compresión de video, abarcando tanto codecs tradicionales (H.264, H.265 y H.266) como enfoques emergentes  (DVC). A través de el análisis de la compresión a través de la experimentación en el set de videos seleccionados se llegó a las siguientes conclusiones en base a los objetivos planteados.
+
+1. **Eficiencia de Compresión:**
+   - Los codecs H.264, H.265 y H.266 han demostrado ser altamente eficientes en la compresión de video, con H.266 (VVC) ofreciendo la mejor tasa de compresión entre los tres en promedio. La evolución de estos codecs ha mostrado una mejora significativa en la eficiencia de compresión y calidad de video. 
+   - DVC ha mostrado un potencial considerable para mejorar la eficiencia de compresión mediante técnicas de aprendizaje profundo. Sin embargo, no ha logrado superar la calidad de compresión de la nueva versión de la serie de codecs H.26x en comparación al tiempo de ejecución.
+2. **Calidad de Salida:**
+   - Al analizar la salida de las métricas aplicadas, se concluye que tanto H.266 como DVC ofrecen una buena compresión de los archivos de video, en especial DVC se ha optimizado para ser lo mas similar posible a las imagenes originales en términos de luminancia, lo que significa que para el ojo humano, la salida de DVC podría verse lo más parecida a la imagen original.
+3. **Factibilidad de Ejecución en Tiempo Real:**
+   - A pesar de que DVC ofrece una buena calidad de compresión y buenos scores tanto en PSNR y SSIM, no resulta práctico ni eficiente en cuanto a complejidad computacional ni al tiempo de ejecución, tanto para la codificación como para la decodificación
+   - Siendo que DVC es un codec que usa Tensorflow, debe ser optimizado con el uso de GPU. Para el experimento se usó la ejecución en CPU y se obtuvo tiempos de ejecución de mas de 10 minutos por cada grupo de frames. Por lo tanto, se requeriría mucho mas trabajo para que el codec pueda ser usado en tiempo real o para un uso estandarizado.
+   - El codec H.266 ha sido, como se esperaba, diseñado para poder evolucionar a ser un estándar en la compresión de video. Pese a que llega a alcanzar tiempos de ejecución similares a H.265, para videos de la dimensión y tamaño de aquellos como los videos 1 y 2 usados, podría alcanzar varios minutos de ejecución para mayor bitrate de salida.
+4. **Impacto y Futuro de la Compresión de Video:**
+   - La adopción de tecnologías de compresión a través de aprendizaje profundo y CNN es un campo que aún necesita exploración y sobretodo, optimización. A la fecha de escrito este informe, el futuro de este enfoque es incierto, pese a que ofrece resultados superiores a los de estandares pasados, su uso continuo en un futuro requeriría que se reduzca la complejidad del algoritmo.
+
+En conclusión, este proyecto ha demostrado que los métodos de compresión de video basados en aprendizaje profundo, como DVC, tienen el potencial de superar a los codecs tradicionales en términos de calidad de salida. Sin embargo, la complejidad computacional y la necesidad de recursos de hardware especializados representan desafíos significativos que deben abordarse para la adopción generalizada de estas tecnologías.
 
 ---
 

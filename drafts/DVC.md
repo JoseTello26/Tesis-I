@@ -16,3 +16,6 @@ $$
 Donde $d$ es la función que mide la distorsión entre $x_t$ y $\hat{x}_t$ y $H(x)$ denota la cantidad de bits utilizados para codificar $x$
 
 Según los resultados obtenidos en [], el método empleado logra obtener un mejor resultado que los codecs evaluados hasta el momento, que son H.264 y H.265, lo cual resulta en una nueva estrategia para abordar la compresión de video, además de ser extensible aplicando incluso mejores algoritmos para hallar el flujo óptico.
+
+
+
